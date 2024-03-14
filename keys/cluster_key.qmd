@@ -1,0 +1,133 @@
+---
+title: "Week 10 CoPilot Demonstration"
+author: "Nathaniel Grimes"
+format: 
+  html:
+    embed_resources: true
+    code_folding: show
+execute:
+  message: false
+  warning: false
+  
+---
+
+```{r}
+library(tidyverse)
+library(NbClust)
+library(factoextra)
+```
+
+
+## Setup Copilot in Rstudio
+
+Go to the Rstudio website and update the latest version of Rstudio. Once you have Rstudio installed, you can install the Copilot plugin by going to the Tools menu and selecting "Global Options". Scroll to the bottom of the options menu and select the CoPilot icon. You need to enable it and connect it to your github account. Once you have done this, you can use the CoPilot plugin to help you write code in Rstudio.
+
+## Demo copilot in quarto docs
+
+Copilot gives prompts to text in Quarto documents as well as prompts within code chunk.
+
+Suggestions appear as light grey text following your input. To accept suggestions use tab. To ignore press escape. The following paragraph is a demonstration of what CoPilot will fill in using "Copilot is...".
+
+Copilot is a tool that helps you write code by providing suggestions for what you might want to write next. It uses a machine learning model trained on a large dataset of code to generate these suggestions. The suggestions are based on the context of the code you've already written, so they should be relevant to what you're working on. You can use Copilot to write entire functions or classes, or just to help you fill in the details of a particular piece of code. It's designed to be a helpful assistant that can save you time and effort when writing code.
+
+## Load in seeds data
+
+```{r}
+# Load in the seeds .txt data
+seeds <- read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt", header = FALSE)
+
+# Load in the seeds .txt data using read_tsv() from the data folder
+seeds <- read_tsv("data/seeds_dataset.txt", col_names = FALSE)
+
+# Load in the seeds .txt data using read_tsv() from the data folder and assign column names. Change -999 values to NA. Change the data in the species column to names.
+seeds <- read_tsv("data/seeds_dataset.txt", col_names = c("area", "perimeter", "compactness", "length", "width", "asymmetry", "groove", "species"), na = "-999") %>%
+  mutate(species = case_when(species == 1 ~ "Kama", species == 2 ~ "Rosa", species == 3 ~ "Canadian"))
+
+
+
+```
+
+
+## Exploratory visuals
+
+Let's make some historgrams of the seeds data to see what it looks like.
+
+```{r}
+# Make histograms of the numeric columns in the seeds data
+seeds %>%
+  select(-species) %>%
+  map(~ ggplot(data = seeds, aes(x = !!sym(.x))) +
+        geom_histogram() +
+        labs(title = .x))
+
+# Make histograms of the numeric columns in the seeds data and facet by species
+seeds %>%
+  select(-species) %>%
+  pivot_longer(cols = -species) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~name, scales = "free")
+
+# Not quite right, All we have to do is not remove species so pivot longer can select species
+seeds %>%
+  pivot_longer(cols = -species) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~name, scales = "free")
+
+
+
+```
+
+## Pseudocode helps CoPilot think about suggestions
+
+Pseudocode plan:
+We need to remove nas
+Scale the numeric seeds data
+Use NbClust to get optimal clusters
+Make a knee plot to see fits
+Use kmeans to cluster the data
+Plot the data with the clusters
+
+```{r}
+# Remove nas from the seeds data save as new object
+seeds_clean <- seeds %>%
+  drop_na()
+
+# Scale the numeric columns in the clean seeds data as new object
+seeds_scaled <- seeds_clean %>%
+  select(-species) %>%
+  scale()
+
+# Use NbClust to get optimal clusters
+nb <- NbClust(seeds_scaled, distance = "euclidean", min.nc = 2, max.nc = 10, method = "kmeans")
+
+nb
+
+# Make a knee plot to see fits
+fviz_nbclust(nb)
+
+# MAke a knee plot with the scaled data for kmeans and a max of 10 clusters
+fviz_nbclust(seeds_scaled, kmeans, method = "wss", k.max = 10)
+
+### Notice how copilot is using the pseducode to prompt the next steps
+
+# Use kmeans to cluster the scaled seeds data with 3 clusters
+seeds_kmeans <- kmeans(seeds_scaled, centers = 3)
+
+# Plot the scaled seeds data with the clusters
+## WE don't want this quite yet, we need to add the cluster column to the seeds data
+
+# Add the cluster column as factor to the seeds data
+seeds_clustered <- seeds_clean %>%
+  mutate(cluster = factor(seeds_kmeans$cluster))
+
+# Plot the scaled seeds data with the clusters and shapes as species.
+seeds_clustered %>%
+  ggplot(aes(x = area, y = perimeter, color = cluster, shape = species)) +
+  geom_point() +
+  labs(title = "Seeds data with kmeans clusters")
+
+
+```
+Viola we just completed Lab 9 in record time using CoPilot.  What sped up the process was we had a clear direction of where we want to go. CoPilot just filled in the tedious coding part, but we guided the structure and flow of the analysis. 
