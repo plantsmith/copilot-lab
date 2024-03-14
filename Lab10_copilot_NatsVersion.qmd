@@ -1,0 +1,94 @@
+---
+title: "Copilot Demo"
+author: "Natalie Smith"
+format: html
+editor: visual
+---
+
+# Setup
+
+Copilot gives promopts to text in quarto documents. This is a demo of how it works.
+
+```{r}
+library(tidyverse)
+library(here)
+
+```
+
+## Load in seeds data
+
+```{r}
+# Load in the seeds .txt data
+seeds <- read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt", header = FALSE)
+
+# Load in the seeds .txt data using read_tsv() from the data folder
+seeds <- read_tsv("data/seeds_dataset.txt", col_names = FALSE)
+
+# Load in the seeds .txt data using read_tsv() from the data folder and assign column names. Change -999 values to NA. Change the data in the species column to names.
+seeds <- read_tsv("data/seeds_dataset.txt", col_names = c("area", "perimeter", "compactness", "length", "width", "asymmetry", "groove", "species"), na = "-999") %>%
+  mutate(species = case_when(species == 1 ~ "Kama", species == 2 ~ "Rosa", species == 3 ~ "Canadian"))
+```
+
+## Exploratory Visuals: 
+Let's make some histograms of the seeds data to see what it looks like.
+
+```{r}
+# Make histograms of the numeric columns in the seeds data
+seeds %>%
+  select(-species) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~name, scales = "free") +
+  theme_minimal()
+
+```
+
+Pseudocode plan: 
+1. We need to remove NAs 
+2. Scale the numeric seeds data
+3. Use NbClust to get the optimal number of clusters
+4. Make a knee plot
+5. Use kmeans to cluster the data
+6. Plot the data with the clusters
+
+```{r}
+# Remove NAs from the seeds data and save as a new object
+seeds_clean <- seeds %>%
+  drop_na()
+```
+
+```{r}
+# Scale the numeric columns in the seeds data with no NAs and save as a new object
+seeds_scaled <- seeds_clean %>%
+  select(-species) %>%
+  scale()
+```
+
+```{r}
+# Use NbClust to get the optimal number of clusters
+
+library(NbClust)
+nb <- NbClust(seeds_scaled, distance = "euclidean", min.nc = 2, max.nc = 10, method = "kmeans")
+```
+
+```{r}
+# Make a knee plot with the scaled data from kmeans and a max of 10 clusters, method "wss"
+fviz_nbclust(seeds_scaled, kmeans, method = "wss", k.max = 10)
+```
+
+```{r}
+ # Use kmeans to cluster the scaled seeds data with 3 clusters and save as a new object
+seeds_kmeans <- kmeans(seeds_scaled, centers = 3)
+```
+
+```{r}
+# Plot the seeds data with the clusters from kmeans
+seeds_clean %>%
+  mutate(cluster = factor(seeds_kmeans$cluster)) %>%
+  ggplot(aes(x = area, y = perimeter, color = cluster)) +
+  geom_point() +
+  theme_minimal()
+
+```
+
